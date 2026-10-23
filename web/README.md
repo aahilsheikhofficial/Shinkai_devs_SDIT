@@ -1,4 +1,4 @@
-# TrafficSense web (judge mockup)
+# TrafficSense web
 
 Clickable prototype of the TrafficSense website. All data is dummy data from `src/data/mock.ts`, and the map is a hand-drawn SVG of Mangaluru, so it runs with no API keys and no backend.
 
