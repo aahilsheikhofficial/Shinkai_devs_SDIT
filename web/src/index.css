@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Design tokens. Light is the default, .dark on <html> switches them. */
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #f1efea;
+  --text: #1c1b19;
+  --muted: #77736b;
+  --border: #e7e3dc;
+  --accent: #ff6b1a;
+  --accent-soft: #fff0e6;
+  --map-land: #efe9df;
+  --map-water: #cfe3ef;
+  --map-road: #ffffff;
+  --map-road-minor: #e2dacd;
+  --map-label: #8b847a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06);
+}
+.dark {
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --surface-2: #2a2a2a;
+  --text: #f3f1ee;
+  --muted: #9a958d;
+  --border: #2f2f2f;
+  --accent: #ff7a2e;
+  --accent-soft: #3a2416;
+  --map-land: #262626;
+  --map-water: #1a1f24;
+  --map-road: #3a3a3a;
+  --map-road-minor: #303030;
+  --map-label: #7d7870;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+}
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  /* Fixed traffic colours, same in every version */
+  --color-t-free: #22c55e;
+  --color-t-moderate: #eab308;
+  --color-t-heavy: #f97316;
+  --color-t-severe: #ef4444;
+  --color-t-closed: #0a0a0a;
+  --color-olive: #9aa23a;
+  --color-teal: #2bb3a3;
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .25s ease, color .25s ease;
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    box-shadow: var(--shadow);
+  }
+  /* Every button gets a hover lift + orange highlight */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    border-radius: 999px; padding: .55rem 1.1rem; font-weight: 600; font-size: .875rem;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease;
+    cursor: pointer;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .btn:active { transform: translateY(0); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); color: #fff; }
+  .btn-ghost { background: transparent; border-color: transparent; }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .btn-icon { padding: .55rem; }
+  .pill-active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .pill-active:hover { color: var(--bg); }
+  .chip { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.15rem .6rem; font-size:.72rem; font-weight:600; }
+  .input {
+    width: 100%; border-radius: .9rem; border: 1px solid var(--border); background: var(--surface-2);
+    padding: .7rem .95rem; font-size: .9rem; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+}
+
+@keyframes pulse-ring { 0% { r: 6; opacity: .7 } 100% { r: 26; opacity: 0 } }
+.pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
+@keyframes dash { to { stroke-dashoffset: -40 } }
+.route-flow { animation: dash 1.4s linear infinite; }
+@keyframes fade-in { from { opacity: 0; transform: scale(.985) } to { opacity: 1; transform: none } }
+.fade-in { animation: fade-in .45s ease both; }
+
+::-webkit-scrollbar { width: 8px; height: 8px }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px }
