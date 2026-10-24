@@ -97,10 +97,10 @@ Real keys go only in `.env` / `local.properties` (gitignored). Never commit them
 
 | Member | Owns |
 |---|---|
-| Mohammed Safaf (Faf) | TBD |
+| Mohammed Safaf (Faf) | Employee |
 | Aahil | Gov version (Authority Portal) |
 | Gautam | Company version |
-| Madiha | TBD |
+| Madiha | Commuter |
 
 ## Git workflow
 
