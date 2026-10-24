@@ -68,6 +68,9 @@ export type Incident = {
   reports: number
   since: string
   agency?: string
+  /** set for incidents loaded from the backend */
+  lat?: number
+  lng?: number
 }
 
 export const incidents: Incident[] = [
@@ -219,3 +222,109 @@ export const reporters = [
   { name: 'Imran A', reports: 22, accuracy: 84 },
   { name: 'Unknown #4412', reports: 9, accuracy: 41 },
 ]
+
+// Real-world positions (approximate) for the Google map
+export type LatLng = { lat: number; lng: number }
+export const MANGALURU: LatLng = { lat: 12.872, lng: 74.862 }
+export const geo = {
+  incidents: {
+    'INC-2041': { lat: 12.8695, lng: 74.8555 },
+    'INC-2042': { lat: 12.8185, lng: 74.8590 },
+    'INC-2043': { lat: 12.8075, lng: 74.8495 },
+    'INC-2044': { lat: 12.8876, lng: 74.8607 },
+    'INC-2045': { lat: 12.9246, lng: 74.8297 },
+  } as Record<string, LatLng>,
+  employees: {
+    AS: { lat: 12.8460, lng: 74.8572 },
+    MK: { lat: 12.8230, lng: 74.8592 },
+    GR: { lat: 12.9050, lng: 74.8410 },
+    MS: { lat: 12.8790, lng: 74.8960 },
+    PS: { lat: 12.8800, lng: 74.8590 },
+    RD: { lat: 12.8745, lng: 74.8880 },
+    AR: { lat: 12.9300, lng: 74.8300 },
+  } as Record<string, LatLng>,
+  hotspots: {
+    'Pumpwell junction': { lat: 12.8695, lng: 74.8555 },
+    'Thokkotu junction': { lat: 12.8185, lng: 74.8590 },
+    'Nanthoor circle': { lat: 12.8876, lng: 74.8607 },
+    'Ullal Road dip': { lat: 12.8075, lng: 74.8495 },
+  } as Record<string, LatLng>,
+  office: { lat: 12.8790, lng: 74.8960 },
+  home: { lat: 12.8075, lng: 74.8495 },
+  route: [
+    { lat: 12.8075, lng: 74.8495 }, { lat: 12.8185, lng: 74.8590 }, { lat: 12.8450, lng: 74.8572 },
+    { lat: 12.8695, lng: 74.8555 }, { lat: 12.8736, lng: 74.8850 }, { lat: 12.8790, lng: 74.8960 },
+  ],
+  altRoute: [
+    { lat: 12.8185, lng: 74.8590 }, { lat: 12.8350, lng: 74.8750 }, { lat: 12.8600, lng: 74.8850 }, { lat: 12.8736, lng: 74.8850 },
+  ],
+}
+
+// ---- Company version (Faf's final features) ----
+
+export type BadgeTier = 'Gold' | 'Silver' | 'Bronze' | 'None'
+export const honesty = [
+  { name: 'Mohammed Safaf', initials: 'MS', points: 920, tier: 'Gold' as BadgeTier, streak: 41, change: +20, note: '3 verified reports this week' },
+  { name: 'Madiha K', initials: 'MK', points: 810, tier: 'Gold' as BadgeTier, streak: 28, change: +15, note: 'Photo evidence confirmed by Gov' },
+  { name: 'Aahil Sheikh', initials: 'AS', points: 640, tier: 'Silver' as BadgeTier, streak: 12, change: +10, note: 'Late claim auto-verified (Pumpwell)' },
+  { name: 'Gautam R', initials: 'GR', points: 530, tier: 'Silver' as BadgeTier, streak: 9, change: 0, note: 'No reports this week' },
+  { name: 'Rohan D’Souza', initials: 'RD', points: 310, tier: 'Bronze' as BadgeTier, streak: 3, change: +5, note: 'First verified report' },
+  { name: 'Priya Shetty', initials: 'PS', points: 180, tier: 'None' as BadgeTier, streak: 0, change: -60, note: 'Lost Silver: delay claim not matched by GPS' },
+]
+
+export type Attendance = { name: string; initials: string; inAt: string; source: string; status: 'Present' | 'Late · excused' | 'Late · not excused' | 'WFH (rain)' | 'Absent'; note: string }
+export const attendance: Attendance[] = [
+  { name: 'Mohammed Safaf', initials: 'MS', inAt: '08:52', source: 'Office geofence', status: 'Present', note: '' },
+  { name: 'Gautam R', initials: 'GR', inAt: '09:05', source: 'Office geofence', status: 'Present', note: '' },
+  { name: 'Rohan D’Souza', initials: 'RD', inAt: '09:11', source: 'Office geofence', status: 'Present', note: '' },
+  { name: 'Aahil Sheikh', initials: 'AS', inAt: '09:47', source: 'Geofence (ETA)', status: 'Late · excused', note: 'Accident at Pumpwell, verified L5' },
+  { name: 'Madiha K', initials: 'MK', inAt: '09:33', source: 'Geofence (ETA)', status: 'Late · excused', note: 'Road repair, Thokkotu, verified L4' },
+  { name: 'Priya Shetty', initials: 'PS', inAt: '09:26', source: 'Geofence (ETA)', status: 'Late · not excused', note: 'Claimed signal failure, GPS shows 14 min stop elsewhere' },
+  { name: 'Ananya Rao', initials: 'AR', inAt: '—', source: 'Rain policy', status: 'WFH (rain)', note: 'Kulur flood alert, auto WFH' },
+]
+
+// Last 30 days. lateDays = days arrived after shift start, out of WORKDAYS_30 working days
+export const WORKDAYS_30 = 22
+export const fairLateness = [
+  { name: 'Aahil', excused: 96, notExcused: 4, lateDays: 5 },
+  { name: 'Madiha', excused: 71, notExcused: 0, lateDays: 4 },
+  { name: 'Priya', excused: 22, notExcused: 38, lateDays: 7 },
+  { name: 'Gautam', excused: 18, notExcused: 6, lateDays: 3 },
+  { name: 'Rohan', excused: 30, notExcused: 9, lateDays: 4 },
+  { name: 'Ananya', excused: 12, notExcused: 0, lateDays: 1 },
+]
+
+export const sharedWithGov = [
+  { id: 'CR-9031', place: 'Thokkotu junction', reason: 'Road repair', employees: 6, delayMin: 24, proof: 'GPS + photo', govStatus: 'Received' },
+  { id: 'CR-9028', place: 'Pumpwell flyover', reason: 'Accident', employees: 3, delayMin: 32, proof: 'GPS + photo + Maps speed', govStatus: 'Verified' },
+  { id: 'CR-9012', place: 'Ullal Road', reason: 'Flood', employees: 9, delayMin: 45, proof: 'GPS + photo + rainfall', govStatus: 'Referred to MCC' },
+  { id: 'CR-8990', place: 'Thokkotu junction', reason: 'Road repair', employees: 5, delayMin: 19, proof: 'GPS', govStatus: 'Referred to NHAI' },
+]
+
+// ---- Commute routes (same as backend/app/seed.py: HR-approved route per employee) ----
+// floodProne: road has a recorded flood/waterlogging history (Ullal Road dip hotspot, Thokkotu monsoon advisory)
+export const commuteSegments = [
+  { id: 'ullal-thokkotu', name: 'Ullal Road', floodProne: true },
+  { id: 'nh66-thokkotu-pumpwell', name: 'NH-66 Thokkotu–Pumpwell', floodProne: true },
+  { id: 'nh66-pumpwell-nanthoor', name: 'NH-66 Pumpwell–Nanthoor', floodProne: false },
+  { id: 'nh66-nanthoor-kulur', name: 'NH-66 Nanthoor–Kulur', floodProne: false },
+  { id: 'nh66-kulur-surathkal', name: 'NH-66 Kulur–Surathkal', floodProne: false },
+  { id: 'nh73-pumpwell-padil', name: 'NH-73 Pumpwell–Padil', floodProne: false },
+  { id: 'nh73-padil-techpark', name: 'NH-73 Padil–TechPark', floodProne: false },
+  { id: 'hampankatta-kankanady', name: 'Hampankatta–Kankanady', floodProne: false },
+  { id: 'kulur-bridge', name: 'Kulur bridge approach', floodProne: true },
+]
+export const commuteRoutes: Record<string, string[]> = {
+  AS: ['ullal-thokkotu', 'nh66-thokkotu-pumpwell', 'nh73-pumpwell-padil', 'nh73-padil-techpark'],
+  MK: ['nh66-thokkotu-pumpwell', 'nh73-pumpwell-padil', 'nh73-padil-techpark'],
+  GR: ['nh66-kulur-surathkal', 'nh66-nanthoor-kulur', 'nh66-pumpwell-nanthoor', 'nh73-pumpwell-padil', 'nh73-padil-techpark'],
+  MS: ['hampankatta-kankanady', 'nh73-pumpwell-padil', 'nh73-padil-techpark'],
+  PS: ['nh66-pumpwell-nanthoor', 'nh73-pumpwell-padil', 'nh73-padil-techpark'],
+  RD: ['nh73-padil-techpark'],
+  AR: ['kulur-bridge', 'nh66-nanthoor-kulur', 'nh66-pumpwell-nanthoor', 'nh73-pumpwell-padil', 'nh73-padil-techpark'],
+}
+
+/** Employees whose own delay today was put down to this incident's cause (employee.reason link). */
+export const affectedBy = (reason: string) => employees.filter(e => e.status === 'Delayed' && e.reason === reason)
+/** Only level 6 (authority confirmed) counts as a confirmed incident; lower levels are predictions. */
+export const isConfirmed = (verification: number) => verification >= 6

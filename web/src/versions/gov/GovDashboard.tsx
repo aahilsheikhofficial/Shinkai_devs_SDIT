@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { api, dataChanged, hasApi, printAsPdf, useIncidents, useLive } from '../../data/api'
+import { notify } from '../../components/toast'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ArrowUpRight, Building2, Check, Copy, Download, FileText, Info, Lightbulb, Map as MapIcon, MapPin, Radio, Repeat, ShieldCheck } from 'lucide-react'
 import ControlShell from '../../components/ControlShell'
 import TrafficMap from '../../components/TrafficMap'
 import { useThemeMode } from '../../components/theme'
+import { useWeather } from '../../data/weather'
 import { Card, Confidence, LevelChip, StatTile, VerifyDots, tooltipStyle } from '../../components/ui'
 
 import {
@@ -13,8 +16,27 @@ import {
 
 const tabs = ['Overview', 'Company reports', 'Hotspots', 'Road ownership', 'Reports']
 
+const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const dayMon = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+type RawCR = Omit<CompanyReport, 'at' | 'groupWith'> & { at: string; groupWith: string | null }
+const useCompanyReports = () => useLive<CompanyReport[]>('/company-reports', companyReports, (raw: RawCR[]) => raw.map(r => ({ ...r, at: hhmm(r.at), groupWith: r.groupWith ?? undefined })))
+type Referral = (typeof referrals)[number]
+const useReferrals = () => useLive<Referral[]>('/referrals', referrals, (raw: (Referral & { sent: string })[]) => raw.map(r => ({ ...r, sent: dayMon(r.sent) })))
+const useOwnership = () => useLive('/road-ownership', roadOwnership)
+
+/** Send a referral to the agency that owns the road (backend picks the agency from road ownership when not given). */
+async function refer(issue: string, segment: string, agency: string | undefined, reports: number) {
+  if (!hasApi) { notify('No backend configured (VITE_API_BASE_URL). The referral was not sent.', false); return }
+  try {
+    const r = await api<{ id: string; agency: string }>('/referrals', { method: 'POST', json: { issue, segment, agency, reports } })
+    notify(`${r.id} sent to ${r.agency}.`); dataChanged()
+  } catch (e) { notify((e as Error).message, false) }
+}
+
+
 function IncidentFeed() {
-  const [open, setOpen] = useState(incidents[0].id)
+  const { data: incidents } = useIncidents()
+  const [open, setOpen] = useState(incidents[0]?.id)
   return (
     <Card title={<span className="flex items-center gap-2"><Radio size={16} className="text-t-severe animate-pulse" /> Live incident feed</span>} action={<span className="text-xs text-muted">{incidents.length} active</span>}>
       <div className="space-y-2.5">
@@ -42,6 +64,7 @@ function IncidentFeed() {
 }
 
 function HotspotList() {
+  const w = useWeather()
   return (
     <Card title={<span className="flex items-center gap-2"><Repeat size={16} className="text-accent" /> Recurring hotspots</span>} action={<span className="text-xs text-muted">last 30 working days</span>}>
       <div className="space-y-3">
@@ -53,6 +76,11 @@ function HotspotList() {
             </div>
             <div className="mt-2 h-1.5 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-t-moderate via-t-heavy to-t-severe" style={{ width: `${(h.days / 30) * 100}%` }} /></div>
             <div className="mt-2 text-xs text-muted">Main cause <b className="text-ink">{h.mainCause}</b> · {h.hoursLost.toLocaleString()} commuter-hours lost</div>
+            {h.mainCause === 'Flood' && (
+              <div className={`mt-2 chip ${w.days[0]?.risk === 'High' ? 'bg-t-severe/15 text-t-severe' : 'bg-teal/15 text-teal'}`}>
+                Rain today {w.days[0]?.rainMm ?? 0} mm · {w.days[0]?.risk ?? 'Low'} flood risk{w.live ? ' · live' : ''}
+              </div>
+            )}
             <div className="mt-2 flex items-start gap-2 rounded-xl bg-surface-2 p-2.5 text-xs"><Lightbulb size={14} className="text-accent shrink-0 mt-0.5" /><span><b>Suggested fix:</b> {h.suggestion}</span></div>
           </div>
         ))}
@@ -104,6 +132,14 @@ function HoursChart() {
 }
 
 function ReportExports() {
+  const pdf = (k: string, p: string, n: string) => {
+    const rows = monthlyByReason.map(m => `<tr><td>${m.month}</td><td>${m.accident}</td><td>${m.rain}</td><td>${m.repair}</td><td>${m.other}</td></tr>`).join('')
+    const hs = hotspots.map(h => `<tr><td>${h.place}</td><td>${h.days} of 30 days</td><td>${h.mainCause}</td><td>${h.hoursLost}</td><td>${h.suggestion}</td></tr>`).join('')
+    if (!printAsPdf(`TrafficSense ${k} report ${p}`, `<h1>TrafficSense ${k} evidence report · ${p}</h1><p>${n} · Mangaluru · generated ${new Date().toLocaleString('en-IN')}</p>
+      <h2>Incidents by reason</h2><table><tr><th>Month</th><th>Accident</th><th>Rain / flood</th><th>Road repair</th><th>Other</th></tr>${rows}</table>
+      <h2>Recurring hotspots</h2><table><tr><th>Place</th><th>Recurrence</th><th>Main cause</th><th>Commuter-hours lost</th><th>Suggested fix</th></tr>${hs}</table>
+      <p><small>Supports traffic engineering investigation. Final decisions remain with authorised officials.</small></p>`)) notify('Allow pop-ups to save the PDF.', false)
+  }
   return (
     <Card title={<span className="flex items-center gap-2"><FileText size={16} className="text-accent" /> Evidence reports</span>}>
       <div className="grid sm:grid-cols-3 gap-3">
@@ -112,7 +148,7 @@ function ReportExports() {
             <div className="text-xs text-muted font-semibold">{k}</div>
             <div className="font-extrabold text-lg">{p}</div>
             <div className="text-xs text-muted">{n}</div>
-            <button className="btn mt-3 w-full !py-1.5 text-xs"><Download size={13} /> PDF</button>
+            <button className="btn mt-3 w-full !py-1.5 text-xs" onClick={() => pdf(k, p, n)}><Download size={13} /> PDF</button>
           </div>
         ))}
       </div>
@@ -127,19 +163,38 @@ const reportStyle: Record<CompanyReport['status'], string> = {
   Referred: 'bg-teal/15 text-teal',
 }
 
-function CompanyReports({ compact = false }: { compact?: boolean }) {
-  const [rows, setRows] = useState(companyReports)
-  const set = (id: string, status: CompanyReport['status']) => setRows(r => r.map(x => (x.id === id ? { ...x, status } : x)))
-  const merge = (lead: string) => setRows(r => r.filter(x => x.groupWith !== lead).map(x => (x.id === lead ? { ...x, status: 'Verified', employees: x.employees + 7, evidence: [...x.evidence, 'Video'] } : x)))
+function CompanyReports({ compact = false, query = '' }: { compact?: boolean; query?: string }) {
+  const { data: rows, setData: setRows, live } = useCompanyReports()
+  const set = async (id: string, status: CompanyReport['status']) => {
+    if (live) {
+      try { await api(`/company-reports/${id}?status=${encodeURIComponent(status)}`, { method: 'PATCH' }); dataChanged() } catch (e) { return notify((e as Error).message, false) }
+    } else setRows(r => r.map(x => (x.id === id ? { ...x, status } : x)))
+    const r = rows.find(x => x.id === id)
+    if (status === 'Referred' && r) { const agency = incidents.find(i => i.place === r.place)?.agency; await refer(`${r.reason}, ${r.place}`, r.place, agency, r.employees) }
+    else notify(`${id} marked ${status}.`)
+  }
+  const merge = async (lead: string) => {
+    if (live) {
+      try { const r = await api<CompanyReport>(`/company-reports/${lead}/merge`, { method: 'POST' }); notify(`Merged into ${lead}: ${r.employees} employees, evidence ${r.evidence.join(', ')}.`); dataChanged() } catch (e) { notify((e as Error).message, false) }
+      return
+    }
+    setRows(r => {
+      const d = r.filter(x => x.groupWith === lead)
+      return r.filter(x => x.groupWith !== lead).map(x => (x.id === lead ? { ...x, status: 'Verified' as const, employees: x.employees + d.reduce((a, y) => a + y.employees, 0), evidence: [...new Set([...x.evidence, ...d.flatMap(y => y.evidence)])] } : x))
+    })
+    notify(`Merged into ${lead}.`)
+  }
   const dupes = rows.filter(r => r.status === 'Possible duplicate')
-  const list = compact ? rows.slice(0, 4) : rows
+  const q = query.trim().toLowerCase()
+  const shown = q ? rows.filter(r => [r.id, r.company, r.place, r.reason].some(v => v.toLowerCase().includes(q))) : rows
+  const list = compact ? shown.slice(0, 4) : shown
   return (
     <Card title={<span className="flex items-center gap-2"><Building2 size={16} className="text-accent" /> Reports from companies</span>}
       action={<span className="text-xs text-muted">{rows.length} today</span>}>
       {dupes.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-t-moderate/40 bg-t-moderate/10 p-3 text-sm">
           <Copy size={16} className="text-t-moderate" />
-          <span className="mr-auto"><b>{dupes.length + 1} reports</b> look like the same incident at Thokkotu junction.</span>
+          <span className="mr-auto"><b>{dupes.length + 1} reports</b> look like the same incident at {rows.find(r => r.id === dupes[0].groupWith)?.place ?? dupes[0].place}.</span>
           <button className="btn !py-1.5 text-xs" onClick={() => merge(dupes[0].groupWith!)}>Merge into {dupes[0].groupWith}</button>
         </div>
       )}
@@ -171,8 +226,15 @@ function CompanyReports({ compact = false }: { compact?: boolean }) {
 }
 
 function ReferralTracking() {
+  const { data: referrals } = useReferrals()
+  const { data: reports } = useCompanyReports()
+  // New referral = the newest verified company report that has not been referred yet
+  const next = reports.find(r => r.status === 'Verified')
+  const create = () => next
+    ? refer(`${next.reason}, ${next.place}`, next.place, incidents.find(i => i.place === next.place)?.agency, next.employees)
+    : notify('No verified company report is waiting for a referral.', false)
   return (
-    <Card title={<span className="flex items-center gap-2"><ArrowUpRight size={16} className="text-accent" /> Referral tracking</span>} action={<button className="btn !py-1.5 text-xs">New referral</button>}>
+    <Card title={<span className="flex items-center gap-2"><ArrowUpRight size={16} className="text-accent" /> Referral tracking</span>} action={<button className="btn !py-1.5 text-xs" onClick={create}>New referral</button>}>
       <div className="space-y-3">
         {referrals.map(r => (
           <div key={r.id} className="rounded-2xl border border-line p-3.5 transition-all hover:border-accent">
@@ -197,6 +259,12 @@ function ReferralTracking() {
 }
 
 function RoadOwnership() {
+  const { data: roadOwnership, setData, live } = useOwnership()
+  const confirm = async (segment: string) => {
+    if (live) { try { await api(`/road-ownership/confirm?segment=${encodeURIComponent(segment)}`, { method: 'POST' }); dataChanged() } catch (e) { return notify((e as Error).message, false) } }
+    else setData(r => r.map(x => (x.segment === segment ? { ...x, verified: true } : x)))
+    notify(`Owner of ${segment} confirmed.`)
+  }
   return (
     <Card title={<span className="flex items-center gap-2"><MapIcon size={16} className="text-teal" /> Road ownership</span>} action={<span className="text-xs text-muted">segment → responsible agency</span>}>
       <div className="overflow-x-auto">
@@ -208,7 +276,7 @@ function RoadOwnership() {
                 <td className="py-3 pr-3 font-semibold">{r.segment}</td>
                 <td className="pr-3 text-muted">{r.type}</td>
                 <td className="pr-3">{r.agency}</td>
-                <td className="pr-3">{r.verified ? <span className="chip bg-t-free/15 text-t-free">Verified</span> : <button className="btn !py-1 text-xs">Confirm owner</button>}</td>
+                <td className="pr-3">{r.verified ? <span className="chip bg-t-free/15 text-t-free">Verified</span> : <button className="btn !py-1 text-xs" onClick={() => confirm(r.segment)}>Confirm owner</button>}</td>
                 <td>{r.open}</td>
               </tr>
             ))}
@@ -237,8 +305,8 @@ function EvidenceReport() {
       </ul>
       <div className="mt-4 flex flex-wrap gap-2">
         <button className="btn btn-primary" onClick={() => setMade(true)}><FileText size={15} /> {made ? 'Report ready' : 'Generate evidence report'}</button>
-        {made && <button className="btn"><Download size={15} /> Download PDF</button>}
-        {made && <button className="btn"><ArrowUpRight size={15} /> Refer to {e.responsible}</button>}
+        {made && <button className="btn" onClick={() => printAsPdf(`Evidence report ${e.place}`, `<h1>Evidence report · ${e.place}</h1><p>Generated ${new Date().toLocaleString('en-IN')}</p><table><tr><th>Recurrence</th><td>${e.days} of 30 days</td></tr><tr><th>Companies</th><td>${e.companies}</td></tr><tr><th>Reports</th><td>${e.reports}</td></tr><tr><th>Employees hit</th><td>${e.employeesAffected}</td></tr><tr><th>Avg delay</th><td>${e.avgDelay} min</td></tr><tr><th>Commuter-hours lost</th><td>${e.hoursLost}</td></tr><tr><th>Traffic speed</th><td>${e.mapsSpeed}</td></tr><tr><th>Responsible agency</th><td>${e.responsible}</td></tr></table><p><small>Supports a traffic engineering investigation. It is not a final finding.</small></p>`) || notify('Allow pop-ups to save the PDF.', false)}><Download size={15} /> Download PDF</button>}
+        {made && <button className="btn" onClick={() => refer(`Recurring congestion, ${e.place}`, e.place, e.responsible, e.reports)}><ArrowUpRight size={15} /> Refer to {e.responsible}</button>}
       </div>
       <p className="mt-3 text-[11px] text-muted">Supports a traffic engineering investigation. It is not a final finding.</p>
     </Card>
@@ -248,21 +316,25 @@ function EvidenceReport() {
 export default function GovDashboard() {
   const theme = useThemeMode('gov', 'dark')
   const [tab, setTab] = useState('Overview')
+  const [query, setQuery] = useState('')
+  const { data: liveReports } = useCompanyReports()
+  const { data: liveReferrals } = useReferrals()
+  const search = () => { const q = window.prompt('Search company reports (place, company, reason or ID)', query); if (q !== null) { setQuery(q); setTab('Company reports') } }
 
   const tiles = (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-      <StatTile label="Company reports today" value={companyReports.length} color="#ff6b1a" />
-      <StatTile label="Duplicates found" value={2} color="#9aa23a" />
+      <StatTile label="Company reports today" value={liveReports.length} color="#ff6b1a" />
+      <StatTile label="Duplicates found" value={liveReports.filter(r => r.status === 'Possible duplicate').length} color="#9aa23a" />
       <StatTile label="Hours lost today" value="2.7k" color="#eab308" />
       <StatTile label="Recurring hotspots" value={hotspots.length} color="#2bb3a3" />
-      <StatTile label="Referrals open" value={referrals.filter(r => r.stage < 3).length} color="#22a447" />
+      <StatTile label="Referrals open" value={liveReferrals.filter(r => r.stage < 3).length} color="#22a447" />
     </div>
   )
 
   return (
-    <ControlShell sub="Authority Portal · Mangaluru" tabs={tabs} active={tab} onTab={setTab} theme={theme}
+    <ControlShell sub="Authority Portal · Mangaluru" tabs={tabs} active={tab} onTab={setTab} onSearch={search} theme={theme}
       user={{ initials: 'TP', name: 'Traffic Police Control Room' }}
-      cta={<span className="btn !bg-olive !border-olive !text-white hidden sm:inline-flex"><ShieldCheck size={15} /> Authorised officer</span>}>
+      cta={<span className="btn !bg-olive !border-olive !text-white hidden sm:inline-flex"><ShieldCheck size={15} /><span className="hidden 2xl:inline">Authorised officer</span></span>}>
       {tab === 'Overview' && (
         <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
           <div className="space-y-5"><CompanyReports compact /><IncidentFeed /></div>
@@ -280,7 +352,7 @@ export default function GovDashboard() {
         </div>
       )}
       {tab === 'Company reports' && (
-        <div className="grid gap-5 xl:grid-cols-[1fr_420px]"><CompanyReports /><IncidentFeed /></div>
+        <div className="grid gap-5 xl:grid-cols-[1fr_420px]"><CompanyReports query={query} /><IncidentFeed /></div>
       )}
       {tab === 'Hotspots' && (
         <div className="grid gap-5 xl:grid-cols-[1fr_400px]">

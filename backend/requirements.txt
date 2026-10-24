@@ -1,0 +1,12 @@
+﻿fastapi==0.161.1
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.1.6
+pydantic-settings==2.16.1
+httpx==0.28.1
+scikit-learn==1.9.1
+joblib==1.6.0
+numpy==2.4.6
+# For PostgreSQL + PostGIS on the host laptop, also install:
+# psycopg[binary]==3.2.13
+# Tests (python -m pytest -q)
+pytest==9.1.1

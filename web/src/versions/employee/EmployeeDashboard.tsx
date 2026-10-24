@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { downloadFile, sendReport, useIncidents } from '../../data/api'
+import { notify } from '../../components/toast'
+import NotificationsBell from '../../components/NotificationsBell'
 import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
   AlertTriangle, Bell, Camera, CarFront, CloudRain, Construction, FileCheck2, History, LayoutGrid,
@@ -9,16 +12,18 @@ import Logo from '../../components/Logo'
 import TrafficMap from '../../components/TrafficMap'
 import { ThemeToggle, useThemeMode } from '../../components/theme'
 import { Card, Confidence, LevelChip, VerifyDots, tooltipStyle } from '../../components/ui'
-import { delayCauses, incidents, weekCommute } from '../../data/mock'
+import { delayCauses, weekCommute } from '../../data/mock'
+import WeatherChip, { RainWarning } from '../../components/WeatherChip'
 
+// Each item scrolls to its section on this page
 const nav = [
-  { label: 'Dashboard', icon: LayoutGrid },
-  { label: 'My commute', icon: Route },
-  { label: 'Alerts', icon: Bell, badge: 3 },
-  { label: 'Report', icon: Camera },
-  { label: 'Late log', icon: History },
-  { label: 'Privacy', icon: ShieldCheck },
-  { label: 'Settings', icon: Settings },
+  { label: 'Dashboard', icon: LayoutGrid, to: 'top' },
+  { label: 'My commute', icon: Route, to: 'commute' },
+  { label: 'Alerts', icon: Bell, badge: 3, to: 'alerts' },
+  { label: 'Report', icon: Camera, to: 'alerts' },
+  { label: 'Late log', icon: History, to: 'late-log' },
+  { label: 'Privacy', icon: ShieldCheck, to: 'tracking' },
+  { label: 'Settings', icon: Settings, to: 'tracking' },
 ]
 
 const quickReports = [
@@ -39,7 +44,20 @@ export default function EmployeeDashboard() {
   const [active, setActive] = useState('Dashboard')
   const [tracking, setTracking] = useState(true)
   const [reported, setReported] = useState<string | null>(null)
-  const myRoute = incidents.filter(i => ['INC-2041', 'INC-2042'].includes(i.id))
+  const [avoid, setAvoid] = useState(false)
+  const [q, setQ] = useState('')
+  const { data: incidents } = useIncidents()
+  const myRoute = incidents.filter(i => ['INC-2041', 'INC-2042'].includes(i.id) && (!q.trim() || `${i.place} ${i.reason}`.toLowerCase().includes(q.trim().toLowerCase())))
+  const go = (label: string, to: string) => { setActive(label); document.getElementById(to)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+  const report = async (label: string) => {
+    setReported(null)
+    try {
+      const r = await sendReport(label === 'Heavy rain' ? 'Heavy rain' : label === 'Signal down' ? 'Signal failure' : label, { reporter: 'AS' })
+      setReported(`${label} (${r.incident.id}, verification L${r.incident.verification})`)
+    } catch (e) { notify((e as Error).message, false) }
+  }
+  const exportLog = () => downloadFile('late-arrival-log-aahil.csv',
+    ['Date,Delay (min),Reason,Evidence,Status', ...lateLog.map(r => [r.date, r.delay, r.reason, r.evidence, r.ok ? 'Auto-justified' : 'Needs note'].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n'), 'text/csv')
 
   return (
     <div className="min-h-screen flex">
@@ -49,7 +67,7 @@ export default function EmployeeDashboard() {
         {nav.map(n => {
           const on = active === n.label
           return (
-            <button key={n.label} onClick={() => setActive(n.label)}
+            <button key={n.label} onClick={() => go(n.label, n.to)}
               className={`flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer
                 ${on ? 'bg-accent text-white shadow-[0_6px_16px_-6px_var(--accent)]' : 'text-muted hover:bg-surface-2 hover:text-ink hover:translate-x-0.5'}`}>
               <n.icon size={18} /> {n.label}
@@ -64,7 +82,7 @@ export default function EmployeeDashboard() {
         <Link to="/" className="btn btn-ghost justify-start mt-2 text-muted"><LogOut size={16} /> Log out</Link>
       </aside>
 
-      <main className="flex-1 min-w-0 p-5 lg:p-8 space-y-6">
+      <main id="top" className="flex-1 min-w-0 p-5 lg:p-8 space-y-6">
         <header className="flex flex-wrap items-center gap-3">
           <div className="mr-auto">
             <h1 className="text-2xl font-extrabold tracking-tight">Good morning, Aahil 👋</h1>
@@ -72,16 +90,17 @@ export default function EmployeeDashboard() {
           </div>
           <div className="relative hidden sm:block">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-            <input className="input !rounded-full !pl-10 w-60" placeholder="Search a road or place" />
+            <input className="input !rounded-full !pl-10 w-60" placeholder="Search a road or place" value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go('Alerts', 'alerts') }} />
           </div>
-          <button className="btn btn-icon relative" aria-label="Notifications"><Bell size={17} /><span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-accent" /></button>
+          <span className="hidden lg:inline-flex"><WeatherChip /></span>
+          <NotificationsBell size={17} dot="bg-accent" only={['INC-2041', 'INC-2042']} />
           <ThemeToggle {...theme} />
           <span className="grid place-items-center size-10 rounded-full bg-accent text-white font-bold text-sm">AS</span>
         </header>
 
         {/* Top row */}
         <div className="grid gap-6 xl:grid-cols-3">
-          <Card className="xl:col-span-2" title="Today’s commute"
+          <Card id="commute" className="xl:col-span-2" title="Today’s commute"
             action={<LevelChip level="severe">+32 min delay</LevelChip>}>
             <div className="grid sm:grid-cols-4 gap-4">
               {[
@@ -102,11 +121,12 @@ export default function EmployeeDashboard() {
               <div className="mr-auto text-sm">
                 <b>Faster route found:</b> take the bypass after Thokkotu and save <b>14 min</b>.
               </div>
-              <button className="btn btn-primary"><Navigation size={15} /> Avoid this route</button>
+              <button className="btn btn-primary" onClick={() => { setAvoid(a => !a); notify(avoid ? 'Back on your usual route.' : 'Live route now shows the bypass only.'); document.getElementById('live-route')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}><Navigation size={15} /> {avoid ? 'Avoiding (undo)' : 'Avoid this route'}</button>
             </div>
+            <div className="mt-3"><RainWarning /></div>
           </Card>
 
-          <Card title="Commute tracking" action={
+          <Card id="tracking" title="Commute tracking" action={
             <button onClick={() => setTracking(t => !t)} aria-pressed={tracking}
               className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer hover:ring-4 hover:ring-accent/20 ${tracking ? 'bg-accent' : 'bg-surface-2 border border-line'}`}>
               <span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${tracking ? 'left-6' : 'left-1'}`} />
@@ -126,15 +146,15 @@ export default function EmployeeDashboard() {
 
         {/* Map + alerts */}
         <div className="grid gap-6 xl:grid-cols-3">
-          <Card className="xl:col-span-2 !p-3" >
+          <Card id="live-route" className="xl:col-span-2 !p-3" >
             <div className="flex items-center justify-between px-2 pt-1 pb-3">
               <h3 className="text-[15px] font-bold">Live route</h3>
               <span className="text-xs text-muted flex items-center gap-1.5"><span className="size-2 rounded-full bg-t-free animate-pulse" /> Updated 30 s ago</span>
             </div>
-            <TrafficMap className="h-[360px]" showRoute showAltRoute showIncidents={myRoute} />
+            <TrafficMap className="h-[360px]" showRoute={!avoid} showAltRoute showIncidents={myRoute} />
           </Card>
 
-          <Card title="Alerts on your route" action={<span className="chip bg-accent-soft text-accent">{myRoute.length} active</span>}>
+          <Card id="alerts" title="Alerts on your route" action={<span className="chip bg-accent-soft text-accent">{myRoute.length} active</span>}>
             <div className="space-y-3">
               {myRoute.map(i => (
                 <div key={i.id} className="rounded-2xl border border-line p-3.5 transition-all hover:border-accent hover:-translate-y-0.5">
@@ -150,8 +170,8 @@ export default function EmployeeDashboard() {
                 <div className="text-xs font-semibold text-muted mb-2">See something? Report in one tap</div>
                 <div className="grid grid-cols-2 gap-2">
                   {quickReports.map(q => (
-                    <button key={q.label} onClick={() => setReported(q.label)}
-                      className={`btn !rounded-xl !justify-start ${reported === q.label ? '!border-accent !bg-accent-soft' : ''}`}>
+                    <button key={q.label} onClick={() => report(q.label)}
+                      className={`btn !rounded-xl !justify-start ${reported?.startsWith(q.label) ? '!border-accent !bg-accent-soft' : ''}`}>
                       <q.icon size={15} className="text-accent" /> {q.label}
                     </button>
                   ))}
@@ -204,7 +224,7 @@ export default function EmployeeDashboard() {
           </Card>
         </div>
 
-        <Card title="Late arrival log" action={<button className="btn"><FileCheck2 size={15} /> Export</button>}>
+        <Card id="late-log" title="Late arrival log" action={<button className="btn" onClick={exportLog}><FileCheck2 size={15} /> Export</button>}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted">

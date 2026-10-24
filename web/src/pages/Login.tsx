@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Lock, Mail } from 'lucide-react'
 import Logo from '../components/Logo'
 import { ThemeToggle, useThemeMode } from '../components/theme'
 import { domainById, type DomainId } from '../data/domains'
+import { notify } from '../components/toast'
 
 const audience: Record<DomainId, string> = {
   commuter: 'commuters',
@@ -64,7 +65,7 @@ export default function Login() {
           </div>
           <div className="mt-3 flex justify-between text-xs">
             <label className="flex items-center gap-2 text-muted"><input type="checkbox" defaultChecked className="accent-[var(--accent)]" /> Remember me</label>
-            <a className="font-semibold text-accent hover:underline" href="#">Forgot password?</a>
+            <a className="font-semibold text-accent hover:underline" href="#" onClick={e => { e.preventDefault(); notify('Demo mode: no password is needed. Accounts and password reset arrive with the login backend.') }}>Forgot password?</a>
           </div>
           <button className="btn btn-primary w-full mt-6 !py-3">Sign in <ArrowRight size={16} /></button>
           <p className="mt-4 text-center text-xs text-muted">Demo mode: any details work.</p>

@@ -5,6 +5,14 @@ import Logo from '../components/Logo'
 import { ThemeToggle, useThemeMode } from '../components/theme'
 import { domains, type DomainId } from '../data/domains'
 
+// Warm up the next pages as soon as a role is picked, so they open instantly
+const prefetch: Record<DomainId, () => Promise<unknown>> = {
+  commuter: () => import('../versions/commuter/CommuterView'),
+  employee: () => import('../versions/employee/EmployeeDashboard'),
+  company: () => import('../versions/company/CompanyDashboard'),
+  gov: () => import('../versions/gov/GovDashboard'),
+}
+
 export default function Landing() {
   const theme = useThemeMode('landing', 'light')
   const navigate = useNavigate()
@@ -38,7 +46,7 @@ export default function Landing() {
                   key={d.id}
                   role="radio"
                   aria-checked={on}
-                  onClick={() => setPicked(d.id)}
+                  onClick={() => { setPicked(d.id); import('./Login'); prefetch[d.id]() }}
                   onMouseEnter={() => setPreview(d.id)}
                   onFocus={() => setPreview(d.id)}
                   className={`group relative text-left rounded-2xl border p-4 transition-all duration-200 cursor-pointer

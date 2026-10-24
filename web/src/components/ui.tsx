@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { levelColor, type Level } from '../data/mock'
 
-export function Card({ title, action, children, className = '' }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({ title, action, children, className = '', id }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`card p-5 ${className}`}>
+    <section id={id} className={`card p-5 ${className}`}>
       {(title || action) && (
         <header className="mb-4 flex items-center justify-between gap-3">
           {title && <h3 className="text-[15px] font-bold tracking-tight">{title}</h3>}
