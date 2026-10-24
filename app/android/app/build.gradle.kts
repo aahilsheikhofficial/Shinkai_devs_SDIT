@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 // Google Maps key comes from android/local.properties (gitignored): MAPS_API_KEY=...
 val localProps = Properties().apply {
@@ -13,7 +13,7 @@ plugins {
 }
 
 android {
-    namespace = "`in`.trafficsense.trafficsense"
+    namespace = "com.trafficsense.trafficsense"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -24,7 +24,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "`in`.trafficsense.trafficsense"
+        applicationId = "com.trafficsense.trafficsense"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

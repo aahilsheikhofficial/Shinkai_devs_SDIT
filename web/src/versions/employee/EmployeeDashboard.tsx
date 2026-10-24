@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { downloadFile, sendReport, useIncidents } from '../../data/api'
 import { notify } from '../../components/toast'
 import NotificationsBell from '../../components/NotificationsBell'
 import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
   AlertTriangle, Bell, Camera, CarFront, CloudRain, Construction, FileCheck2, History, LayoutGrid,
-  LogOut, MapPin, Navigation, Route, Search, Settings, ShieldCheck, TrafficCone, Zap,
+  LogOut, MapPin, Navigation, Route, Search, Sparkles, TrafficCone, Zap,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Logo from '../../components/Logo'
@@ -22,8 +22,6 @@ const nav = [
   { label: 'Alerts', icon: Bell, badge: 3, to: 'alerts' },
   { label: 'Report', icon: Camera, to: 'alerts' },
   { label: 'Late log', icon: History, to: 'late-log' },
-  { label: 'Privacy', icon: ShieldCheck, to: 'tracking' },
-  { label: 'Settings', icon: Settings, to: 'tracking' },
 ]
 
 const quickReports = [
@@ -42,8 +40,9 @@ const lateLog = [
 export default function EmployeeDashboard() {
   const theme = useThemeMode('employee', 'light')
   const [active, setActive] = useState('Dashboard')
-  const [tracking, setTracking] = useState(true)
   const [reported, setReported] = useState<string | null>(null)
+  const [photo, setPhoto] = useState<File | null>(null)
+  const file = useRef<HTMLInputElement>(null)
   const [avoid, setAvoid] = useState(false)
   const [q, setQ] = useState('')
   const { data: incidents } = useIncidents()
@@ -52,7 +51,7 @@ export default function EmployeeDashboard() {
   const report = async (label: string) => {
     setReported(null)
     try {
-      const r = await sendReport(label === 'Heavy rain' ? 'Heavy rain' : label === 'Signal down' ? 'Signal failure' : label, { reporter: 'AS' })
+      const r = await sendReport(label === 'Heavy rain' ? 'Heavy rain' : label === 'Signal down' ? 'Signal failure' : label, { reporter: 'AS', hasPhoto: !!photo })
       setReported(`${label} (${r.incident.id}, verification L${r.incident.verification})`)
     } catch (e) { notify((e as Error).message, false) }
   }
@@ -75,11 +74,7 @@ export default function EmployeeDashboard() {
             </button>
           )
         })}
-        <div className="mt-auto rounded-2xl bg-accent-soft p-4">
-          <div className="text-sm font-bold">Tracking is {tracking ? 'ON' : 'OFF'}</div>
-          <p className="text-xs text-muted mt-1">Only during your commute window, 8:00–9:30. Your company never sees personal trips.</p>
-        </div>
-        <Link to="/" className="btn btn-ghost justify-start mt-2 text-muted"><LogOut size={16} /> Log out</Link>
+        <Link to="/" className="btn btn-ghost justify-start mt-auto text-muted"><LogOut size={16} /> Log out</Link>
       </aside>
 
       <main id="top" className="flex-1 min-w-0 p-5 lg:p-8 space-y-6">
@@ -99,8 +94,8 @@ export default function EmployeeDashboard() {
         </header>
 
         {/* Top row */}
-        <div className="grid gap-6 xl:grid-cols-3">
-          <Card id="commute" className="xl:col-span-2" title="Today’s commute"
+        <div className="grid gap-6">
+          <Card id="commute" title="Today’s commute"
             action={<LevelChip level="severe">+32 min delay</LevelChip>}>
             <div className="grid sm:grid-cols-4 gap-4">
               {[
@@ -126,22 +121,18 @@ export default function EmployeeDashboard() {
             <div className="mt-3"><RainWarning /></div>
           </Card>
 
-          <Card id="tracking" title="Commute tracking" action={
-            <button onClick={() => setTracking(t => !t)} aria-pressed={tracking}
-              className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer hover:ring-4 hover:ring-accent/20 ${tracking ? 'bg-accent' : 'bg-surface-2 border border-line'}`}>
-              <span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${tracking ? 'left-6' : 'left-1'}`} />
-            </button>
-          }>
-            <p className="text-sm text-muted">Shared with <b className="text-ink">Infinite Tech Pvt Ltd</b> only while this is on.</p>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              {['Work hours 8:00–18:00', 'Official travel', 'Starts when you begin the journey', 'Emergency (SOS)'].map(p => (
-                <li key={p} className="flex items-center gap-2"><ShieldCheck size={16} className="text-t-free" /> {p}</li>
-              ))}
-            </ul>
-            <div className="mt-4 rounded-2xl bg-surface-2 p-3 text-xs text-muted">
-              Your company is told <b className="text-ink">why</b> you’re late automatically, so you don’t have to explain.
+          <Card title={<span className="flex items-center gap-2"><Sparkles size={17} className="text-accent" /> Predicted commute</span>}
+            action={<span className="chip bg-accent-soft text-accent">AI estimate · demo</span>}>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="mr-auto">
+                <div className="font-bold">Tomorrow: +12 min likely at Pumpwell, 8:40–9:10</div>
+                <div className="text-sm text-muted">Rain forecast + the usual Friday jam on NH-66.</div>
+              </div>
+              <Confidence value={78} />
+              <span className="chip bg-t-free/15 text-t-free">Leave by 8:20 to arrive on time</span>
             </div>
           </Card>
+
         </div>
 
         {/* Map + alerts */}
@@ -176,6 +167,8 @@ export default function EmployeeDashboard() {
                     </button>
                   ))}
                 </div>
+                <input ref={file} type="file" accept="image/*,video/*" capture="environment" hidden onChange={e => setPhoto(e.target.files?.[0] ?? null)} />
+                <button className="btn w-full mt-2 !rounded-xl" onClick={() => file.current?.click()}><Camera size={15} className="text-accent" /> {photo ? `Attached: ${photo.name.slice(0, 24)}` : 'Add photo / video'}</button>
                 {reported && <p className="mt-2 text-xs text-t-free font-semibold">✓ {reported} reported with GPS + time. Thank you!</p>}
               </div>
             </div>

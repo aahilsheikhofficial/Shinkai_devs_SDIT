@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../data/mock.dart';
 import '../data/weather.dart';
 import '../theme.dart';
@@ -147,7 +148,7 @@ class IncidentTile extends StatelessWidget {
   }
 }
 
-void showIncident(BuildContext context, Incident i) {
+void showIncident(BuildContext context, Incident i, {VoidCallback? onAvoid}) {
   showModalBottomSheet(
     context: context,
     showDragHandle: true,
@@ -176,9 +177,16 @@ void showIncident(BuildContext context, Incident i) {
         Row(children: [const Text('Confidence  '), ConfidenceBar(i.confidence)]),
         const SizedBox(height: 18),
         Row(children: [
-          Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.check_rounded), label: const Text('I see it too'))),
+          Expanded(child: OutlinedButton.icon(onPressed: () {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Thanks, confirmed. ${i.place} now has ${i.reports + 1} reports.')));
+          }, icon: const Icon(Icons.check_rounded), label: const Text('I see it too'))),
           const SizedBox(width: 10),
-          Expanded(child: FilledButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.alt_route_rounded), label: const Text('Avoid'))),
+          Expanded(child: FilledButton.icon(onPressed: () {
+            Navigator.pop(context);
+            onAvoid?.call();
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rerouted. Teal dotted line shows the new route.')));
+          }, icon: const Icon(Icons.alt_route_rounded), label: const Text('Avoid'))),
         ]),
       ]),
     ),
@@ -195,6 +203,33 @@ class ThemeButton extends StatelessWidget {
       );
 }
 
+/// Camera or gallery, photo or video
+Future<XFile?> pickPhoto(BuildContext context) async {
+  final choice = await showModalBottomSheet<int>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: const Icon(Icons.photo_camera_rounded), title: const Text('Take photo'), onTap: () => Navigator.pop(context, 0)),
+        ListTile(leading: const Icon(Icons.videocam_rounded), title: const Text('Record video'), onTap: () => Navigator.pop(context, 1)),
+        ListTile(leading: const Icon(Icons.photo_library_rounded), title: const Text('Choose from gallery'), onTap: () => Navigator.pop(context, 2)),
+      ]),
+    ),
+  );
+  if (choice == null) return null;
+  final p = ImagePicker();
+  try {
+    return switch (choice) {
+      0 => await p.pickImage(source: ImageSource.camera, imageQuality: 70),
+      1 => await p.pickVideo(source: ImageSource.camera, maxDuration: const Duration(seconds: 30)),
+      _ => await p.pickMedia(imageQuality: 70),
+    };
+  } catch (_) {
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Camera not available on this device.')));
+    return null;
+  }
+}
+
 /// One-tap incident report sheet (GPS + time attached automatically)
 void showReportSheet(BuildContext context) {
   const kinds = [
@@ -203,6 +238,7 @@ void showReportSheet(BuildContext context) {
     ('Festival / event', Icons.celebration_rounded), ('VIP movement', Icons.local_police_rounded),
   ];
   String? picked;
+  XFile? photo;
   showModalBottomSheet(
     context: context,
     showDragHandle: true,
@@ -229,14 +265,22 @@ void showReportSheet(BuildContext context) {
             ],
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.photo_camera_rounded), label: const Text('Add photo / video'), style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48))),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final f = await pickPhoto(context);
+              if (f != null) set(() => photo = f);
+            },
+            icon: Icon(photo == null ? Icons.photo_camera_rounded : Icons.check_circle_rounded),
+            label: Text(photo == null ? 'Add photo / video' : 'Attached: ${photo!.name}', overflow: TextOverflow.ellipsis),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          ),
           const SizedBox(height: 10),
           FilledButton(
             onPressed: picked == null
                 ? null
                 : () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$picked reported. Nearby users will confirm it.')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$picked reported${photo != null ? ' with photo' : ''}. Nearby users will confirm it.')));
                   },
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
             child: const Text('Send report'),

@@ -1,4 +1,4 @@
-package `in`.trafficsense.trafficsense
+﻿package com.trafficsense.trafficsense
 
 import io.flutter.embedding.android.FlutterActivity
 

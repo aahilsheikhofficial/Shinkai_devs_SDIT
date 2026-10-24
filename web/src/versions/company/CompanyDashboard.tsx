@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
   ArrowRight, Award, BellRing, Brain, CalendarCheck, Check, CloudRain, EyeOff, Eye, FileText, LayoutDashboard, Landmark, Lock, Map as MapIcon, Medal,
-  Scale, Send, ShieldCheck, TrendingDown, TrendingUp, UserCheck, Users,
+  Scale, Send, ShieldCheck, Sparkles, TrendingDown, TrendingUp, UserCheck, Users,
 } from 'lucide-react'
 import WeatherPage from './WeatherPage'
 import ReportsPage from './ReportsPage'
@@ -392,6 +392,36 @@ function ArrivalSummary() {
   )
 }
 
+// Demo only: hardcoded forecast standing in for a trained model
+const forecast = [
+  { route: 'Pumpwell flyover', people: 4, delay: 18 },
+  { route: 'Thokkotu junction', people: 2, delay: 11 },
+  { route: 'Nanthoor circle', people: 1, delay: 8 },
+]
+
+function LatenessForecast() {
+  const total = forecast.reduce((a, f) => a + f.people, 0)
+  return (
+    <Card title={<span className="flex items-center gap-2"><Sparkles size={17} className="text-accent" /> Tomorrow's lateness forecast</span>}
+      action={<span className="chip bg-accent-soft text-accent">AI estimate · demo</span>}>
+      <p className="text-sm"><b>{total} employees</b> likely late, 8:40–9:30. Rain forecast + usual Friday jam.</p>
+      <div className="mt-3 space-y-2">
+        {forecast.map(f => (
+          <div key={f.route} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+            <span className="mr-auto font-semibold">{f.route}</span>
+            <span className="text-muted">{f.people} {f.people > 1 ? 'people' : 'person'}</span>
+            <span className="chip bg-accent-soft text-accent">+{f.delay} min</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent-soft p-3 text-sm">
+        <span className="mr-auto">Suggest flexible start <b>9:30</b> for 4 people on the Pumpwell route.</span>
+        <button className="btn btn-primary !py-1.5 text-xs" onClick={() => notify('Flexible 9:30 start suggested to 4 employees (demo).')}>Suggest</button>
+      </div>
+    </Card>
+  )
+}
+
 function ProactiveAlerts({ onGov }: { onGov: () => void }) {
   const late = employees.filter(e => e.status === 'Delayed')
   return (
@@ -433,6 +463,7 @@ export default function CompanyDashboard() {
           <div className="space-y-5 min-w-0">
             <ArrivalStatus onViewAll={() => go('status')} />
             <ArrivalSummary />
+            <LatenessForecast />
           </div>
         </div>
       )}

@@ -12,7 +12,7 @@ extension RoleX on Role {
   IconData get icon => this == Role.commuter ? Icons.directions_car_rounded : Icons.work_rounded;
   String get blurb => this == Role.commuter
       ? 'See why a road is blocked, get a better route, and report what you see in one tap.'
-      : 'Your commute and its delays, shared with your company only during work travel.';
+      : 'Your commute, route alerts and a verified late-arrival log for work.';
 }
 
 /// "Who are you?" — the artwork swaps with the chosen role.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/mock.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -14,12 +15,14 @@ class _CommuterHomeState extends State<CommuterHome> {
   bool avoiding = false;
   final search = SearchController();
 
+  void _details(Incident i) => showIncident(context, i, onAvoid: () => setState(() => avoiding = true));
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     return Scaffold(
       body: Stack(children: [
-        Positioned.fill(child: TrafficMap(showRoute: true, showAlt: avoiding, onIncidentTap: (i) => showIncident(context, i))),
+        Positioned.fill(child: TrafficMap(showRoute: true, showAlt: avoiding, onIncidentTap: _details)),
         // Top bar: search, weather, theme
         SafeArea(
           child: Padding(
@@ -43,7 +46,7 @@ class _CommuterHomeState extends State<CommuterHome> {
                             subtitle: Text('${i.reason} · +${i.delayMin} min'),
                             onTap: () {
                               c.closeView(i.place);
-                              showIncident(context, i);
+                              _details(i);
                             },
                           ),
                       ];
@@ -93,7 +96,7 @@ class _CommuterHomeState extends State<CommuterHome> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton(onPressed: () => showIncident(context, incidents.first), child: const Text('Why?')),
+                      OutlinedButton(onPressed: () => _details(incidents.first), child: const Text('Why?')),
                     ]),
                   ]),
                 ),
@@ -157,16 +160,16 @@ class _CommuterHomeState extends State<CommuterHome> {
         builder: (context) => AlertDialog(
           icon: const Icon(Icons.sos_rounded, color: Palette.severe, size: 40),
           title: const Text('Send SOS?'),
-          content: const Text('Your live location goes to emergency contacts and nearby traffic police.'),
+          content: const Text('This calls 112, the national emergency number.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Palette.severe),
               onPressed: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('SOS sent (demo).')));
+                launchUrl(Uri.parse('tel:112'));
               },
-              child: const Text('Send SOS'),
+              child: const Text('Call 112'),
             ),
           ],
         ),

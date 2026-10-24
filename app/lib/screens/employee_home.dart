@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../data/mock.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -13,7 +14,6 @@ class EmployeeHome extends StatefulWidget {
 
 class _EmployeeHomeState extends State<EmployeeHome> {
   int tab = 0;
-  bool tracking = true;
   bool avoiding = false;
 
   @override
@@ -99,30 +99,38 @@ class _EmployeeHomeState extends State<EmployeeHome> {
       ),
       const SizedBox(height: 14),
       Card(
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 260,
-          child: TrafficMap(incidents: incidents.take(2).toList(), showRoute: true, showAlt: avoiding, onIncidentTap: (i) => showIncident(context, i)),
-        ),
-      ),
-      const SizedBox(height: 14),
-      Card(
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text('Commute tracking', style: t.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              const Icon(Icons.auto_awesome_rounded, color: Palette.accent, size: 20),
+              const SizedBox(width: 6),
+              Text('Predicted commute', style: t.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               const Spacer(),
-              Switch(value: tracking, activeTrackColor: Palette.accent, onChanged: (v) => setState(() => tracking = v)),
+              Text('AI estimate · demo', style: TextStyle(fontSize: 11, color: t.hintColor)),
             ]),
-            Text(tracking ? 'ON · shared with Infinite Tech only during 8:00–9:30 and work travel.' : 'OFF · nothing is shared.', style: TextStyle(fontSize: 13, color: t.hintColor)),
             const SizedBox(height: 10),
-            for (final p in ['Work hours 8:00–18:00', 'Starts when you begin the journey', 'Never on personal trips', 'Emergency (SOS)'])
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [const Icon(Icons.verified_user_rounded, size: 16, color: Palette.free), const SizedBox(width: 8), Text(p, style: const TextStyle(fontSize: 13))]),
-              ),
+            const Text('Tomorrow: +12 min likely at Pumpwell, 8:40–9:10', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('Rain forecast + the usual Friday jam on NH-66.', style: TextStyle(fontSize: 13, color: t.hintColor)),
+            const SizedBox(height: 8),
+            Row(children: [const Text('Confidence  '), const ConfidenceBar(78)]),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Palette.free.withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
+              child: const Text('Leave by 8:20 to arrive on time.', style: TextStyle(fontWeight: FontWeight.w700, color: Palette.free)),
+            ),
           ]),
+        ),
+      ),
+      const SizedBox(height: 14),
+      Card(
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: 260,
+          child: TrafficMap(incidents: incidents.take(2).toList(), showRoute: true, showAlt: avoiding, onIncidentTap: (i) => showIncident(context, i, onAvoid: () => setState(() => avoiding = true))),
         ),
       ),
       const SizedBox(height: 14),
@@ -188,7 +196,17 @@ class _EmployeeHomeState extends State<EmployeeHome> {
         ),
       ),
       const SizedBox(height: 16),
-      Text('Late arrival log', style: t.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+      Row(children: [
+        Expanded(child: Text('Late arrival log', style: t.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+        OutlinedButton.icon(
+          onPressed: () => SharePlus.instance.share(ShareParams(
+            subject: 'Late arrival log',
+            text: ['Date,Delay (min),Reason,Evidence,Status', for (final l in lateLog) '"${l.date}",${l.delay},"${l.reason}","${l.evidence}",${l.excused ? 'Excused' : 'Needs note'}'].join('\n'),
+          )),
+          icon: const Icon(Icons.ios_share_rounded, size: 18),
+          label: const Text('Export'),
+        ),
+      ]),
       Text('Your company sees why you were late automatically.', style: TextStyle(color: t.hintColor)),
       const SizedBox(height: 12),
       for (final l in lateLog)
